@@ -4,21 +4,24 @@ import chess.svg
 
 from IPython.display import SVG
 
-mode = input("Playing vs AI? y/n\n")
-if mode == "y":
-	mode = True
+load = input("Please input starting FEN (leave blank for new game)\n")
+if load == "":
+	board = chess.Board()
 else:
-	mode = False
+	board = chess.Board(load)
 
-board = chess.Board()
+
+mode = input("Playing vs AI? y/n\n")
+
+
 print(board.fen())
 print(board)
 while True:
-	if mode:
+	print("Turn", board.fullmove_number)
+	if mode == "y":
 		move = calc_best_move(board.fen())
 		chess.Move.from_uci(move)
 	else:
-		print(board.legal_moves)
 		move = input("Move in san\n")
 		# while move not in board.legal_moves:
 		# 	move = input("Not a legal move, try again")
@@ -26,14 +29,17 @@ while True:
 			try:
 				board.push_san(move)
 			except ValueError:
-				print(board.legal_moves)
+				print(board.pseudo_legal_moves)
 				move = input("That was not a legal move. Here are your legal moves. Try again\n")
 				continue
 			else:
 				break
+	if board.is_game_over():
+		break
+	if board.is_check():
+		print("Black, you are in Check!")
 	print(board.fen())
 	print(board)
-	print(board.legal_moves)
 	move = input("Move in san\n")
 	while True:
 			try:
@@ -44,5 +50,12 @@ while True:
 				continue
 			else:
 				break
+	if board.is_game_over():
+		break
+	if board.is_check():
+		print("Black, you are in Check!")
 	print(board.fen())
 	print(board)
+
+
+print(chess.Outcome.result())
