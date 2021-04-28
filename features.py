@@ -109,118 +109,7 @@ def get_coordinates(
     return coords
 
 
-class PiecePosition:
-    def __init__(self, board: chess.Board, symbol: str, rank: int, file: int, present: int):
-        self.symbol = symbol
-        self.rank = rank
-        self.file = file
-        self.position = self.rank * 8 + self.file
-        self.present = present
-
-    def __str__(self):
-        return f"{self.symbol}: {self.rank}, {self.file}, {self.present}"
-
-
-class SlidingPiecePosition(PiecePosition):
-    def __init__(self, board: chess.Board, *args):
-        super().__init__(board, *args)
-        self.legal_moves = board.legal_moves
-        self.mobility = dict()  # Depends on the piece
-
-    def __str__(self):
-        return f"{self.symbol}: {self.rank}, {self.file}, {self.present}, {self.mobility}"
-
-    def get_mobility(self, offsets: Dict[str, int]):
-        mobility = {direction: 0 for direction in offsets.keys()}
-
-        for direction, offset in offsets.items():
-            dst_idx = self.position + offset
-            while dst_idx >= 0 and dst_idx < 64:
-                move = chess.Move(self.position, dst_idx)
-                if move in self.legal_moves:
-                    mobility[direction] += 1
-                else:
-                    break
-                dst_idx += offset
-
-        return mobility
-
-    def diagonal_mobility(self):
-        offsets = {'NW': 7, 'NE': 9, 'SW': -9, 'SE': -7}
-        return self.get_mobility(offsets)
-
-    def horizontal_mobility(self):
-        offsets = {'N': 8, 'S': -8, 'W': -1, 'E': 1}
-        return self.get_mobility(offsets)
-
-
-class KingPosition(PiecePosition):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-
-class QueenPosition(SlidingPiecePosition):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.mobility.update(self.diagonal_mobility())
-        self.mobility.update(self.horizontal_mobility())
-
-
-class RookPosition(SlidingPiecePosition):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.mobility.update(self.horizontal_mobility())
-
-
-class BishopPosition(SlidingPiecePosition):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.mobility.update(self.diagonal_mobility())
-
-
-class KnightPosition(PiecePosition):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-
-class PawnPosition(PiecePosition):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-
-PositionClasses = {
-    'K': KingPosition,
-    'Q': QueenPosition,
-    'R': RookPosition,
-    'B': BishopPosition,
-    'N': KnightPosition,
-    'P': PawnPosition,
-}
-
-
-def get_sliding_mobility(board: chess.Board):
-    """
-    Get the number of spaces sliding pieces can move in each direction.
-
-    :param board: The current board state.
-    :returns: TODO (None, currently).
-    """
-    mobilities = dict()
-
-    for color in Colors:
-        for piece in Pieces:
-            # Get the string for each piece
-            piece_name = chess.Piece(piece, color).symbol()
-            cls = PositionClasses[piece_name.upper()]
-            coords = get_coordinates(piece, color, piece_name, board)
-            for i, position in enumerate(coords):
-                key = piece_name + str(i)
-                # feat[key] = position
-                mobility = cls(board, key, *position)
-                mobilities[key] = mobility
-
-
-def get_general_mobility(board: chess.Board) -> List[int]:
+def get_mobility(board: chess.Board) -> List[int]:
     """
     Get the number of legal moves for each piece.
 
@@ -289,7 +178,7 @@ def board_to_feat(board: chess.Board):
     feat = dict()
 
     feat['material'] = get_material(board)
-    feat['mobility'] = get_general_mobility(board)
+    feat['mobility'] = get_mobility(board)
     feat['center_control'] = get_center_control(board)
 
     return feat
