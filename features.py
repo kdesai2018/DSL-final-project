@@ -168,6 +168,41 @@ def get_center_control(board: chess.Board) -> Tuple[int, int]:
     return center_control
 
 
+def get_number_of_forks(board: chess.Board) -> Tuple[int, int]:
+    # [number of black pieces that have a fork, number of white pieces that have a fork]
+    forks = [0, 0]
+
+    for square in chess.SQUARES:  # goes from bottom left to bottom right, then upwards
+        attackerColor = None
+        attackingPieceSymbol = board.piece_at(square)
+        # print("attacking piece is", attackingPieceSymbol) #R, p, None, etc.
+        if attackingPieceSymbol is not None:
+            attackingPiece = chess.Piece.from_symbol(str(attackingPieceSymbol))
+            # print("attackingPiece is", attackingPiece) ##R, p, None, etc. but as Piece object
+            attackerColor = attackingPiece.color
+
+        # print("attackerColor is", attackerColor) #True for white, False for black, None if no piece on current square
+        attackedSquares = board.attacks(square)
+        # print("attacked squares are")
+        # print(list("attackedSquares are", attackedSquares)) #[1, 2, 3, 8, 16] for example are the attackable squares (some are empty)
+        numWhiteAttacks = 0
+        numBlackAttacks = 0
+
+        for sq in list(attackedSquares):
+            # print(board.piece_at(x)) #P, Q, None, etc.
+            if board.piece_at(sq) is not None:
+                attackedColor = chess.Piece.from_symbol(str(board.piece_at(sq))).color
+                if (attackedColor == True and attackerColor == False):
+                    numBlackAttacks += 1
+                elif (attackedColor == False and attackerColor == True):
+                    numWhiteAttacks += 1
+        if (numWhiteAttacks > 1):
+            forks[1] += 1
+        if (numBlackAttacks > 1):
+            forks[0] += 1
+
+    return forks
+
 def board_to_feat(board: chess.Board):
     """
     Convert a board state into a set of features.
@@ -180,6 +215,7 @@ def board_to_feat(board: chess.Board):
     feat['material'] = get_material(board)
     feat['mobility'] = get_mobility(board)
     feat['center_control'] = get_center_control(board)
+    feat['forks'] = get_number_of_forks(board)
 
     return feat
 
