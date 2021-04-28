@@ -13,7 +13,6 @@ time_control, utc_date, utc_time,
 
 number of pawn islands: black_pawn_islands, white_pawn_islands
 number of isolated single pawns: black_single_pawns, white_single_pawns
-pawns protected by another pawn: black_pawn_supported_pawn, white_pawn_supported_pawn
 
 white_king_in_check, white, king_mobility_top3, black_king_in_check, black_king_mobility_top3
 
@@ -27,9 +26,9 @@ data_dir = './data/'
 
 cols = ['move_number', 'black_pawn_islands', 'white_pawn_islands', 
 'black_single_pawns', 'white_single_pawns', 'white_pieces_moved_upto_now', 'black_pieces_moved_upto_now', 
-'white_can_castle', 'black_can_castle', 'white_has_castled', 'black_has_castled'
+'white_can_castle', 'black_can_castle', 'white_has_castled', 'black_has_castled',
 'white_king_mobility_top3', 'black_king_mobility_top3', 'current_player_in_check',
-'is_checkmate', 'is_statemate', 'is_insufficient_material']
+'is_checkmate', 'is_stalemate', 'is_insufficient_material', 'piece_moved']
 
 
 # cols = ['event', 'site', 'date', 'round', 'white_username', 'black_username', 
@@ -43,13 +42,51 @@ cols = ['move_number', 'black_pawn_islands', 'white_pawn_islands',
 
 main = pd.DataFrame(columns=cols)
 
-def get_num_single_pawns(chesscolor, board):
+def get_pawn_structure(chesscolor, board):
     '''
     color = True if white, else False
+
+    an island is defined as two or more pawns next to each other
+    return: (single_pawns, islands)
     '''
 
     sqset = board.pieces(chess.PAWN, chesscolor)
-    print(sqset)
+
+
+    islands = singletons = 0
+    possible_island = False
+
+    for s in range(len(sqset)-1):
+        cur_pawn = list(sqset)[s]
+        next_pawn = list(sqset)[s+1]
+
+        file_diff = (next_pawn%8) - (cur_pawn%8)
+        dist = next_pawn - cur_pawn
+
+        '''
+            case 1: single pawn, no pawn in next file -> singleton += 1
+            case 2: single pawn with 2 in same file, nothing in next -> singleton+=1
+            case 3: single pawn, pawn in next file but not connecting/next to -> island+=1
+            case 4: pawn with connecting pawn in next file-> set flag, continue
+
+            here, cases 1 
+        '''
+
+        if file_diff != 1: # cases 1 and 2
+            singletons += 1
+            continue
+        elif dist not in set([-7,1,9]):  #case 3
+            possible_island = False # resset
+            island += 1
+            continue
+        else: # case 4
+            possible_island = True
+            continue
+
+    islands += int(possible_island)
+
+    return (singletons, islands)
+
 
 
 
@@ -114,12 +151,18 @@ def get_kush_features(game, df_append):
 
         ret['white_pieces_moved_upto_now'] = [len(white_pieces_moved)]
         ret['black_pieces_moved_upto_now'] = [len(black_pieces_moved)]
-        
+        ret['piece_moved'] = moved_piece.piece_type
         board.push(move)
 
 
-        # get_num_single_pawns(chess.WHITE, board)
 
+        w_single, w_islands = get_pawn_structure(chess.WHITE, board)
+        b_single, b_islands = get_pawn_structure(chess.BLACK, board)
+
+        ret['white_pawn_islands'] = [w_islands]
+        ret['black_pawn_islands'] = [b_islands]
+        ret['black_single_pawns'] = [b_single]
+        ret['white_single_pawns'] = [w_single]
 
         
         ret['white_king_mobility_top3'] = [get_king_mobility(chess.WHITE, board)]
@@ -134,10 +177,10 @@ def get_kush_features(game, df_append):
         ret['move_number'] = [move_current]
         ret['is_checkmate'] = [board.is_checkmate()]
         ret['is_stalemate'] = [board.is_stalemate()]
+        print(board.is_stalemate())
         ret['is_insufficient_material'] = [board.is_insufficient_material()]
 
-        df_append = df_append.append(ret)
-        break         
+        df_append = df_append.append(ret)     
 
     return df_append
 
@@ -147,7 +190,10 @@ def get_kush_features(game, df_append):
 if __name__ == '__main__':
     pgn = open(data_dir + '2013-01.pgn')
     game = chess.pgn.read_game(pgn)
-    get_kush_features(game, main)
+    df = get_kush_features(game, main)
+    print(game.mainline_moves())
+    print(df)
+    df.to_csv('tmp.csv')
 
     # while game:
     #     print(game)
