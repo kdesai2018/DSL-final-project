@@ -3,6 +3,7 @@
 # features.py: Extract features from boards
 
 from collections import OrderedDict
+from typing import Dict, List, Tuple
 
 import chess
 import chess.pgn
@@ -72,7 +73,7 @@ def get_material(board: chess.Board) -> (int, int):
 
 def get_coordinates(
     piece: chess.Piece, color: chess.Color, piece_name: str, board: chess.Board
-) -> list[(int, int, int)]:
+) -> List[Tuple[int, int, int]]:
     """
     Get the rank and file coordinates of all pieces of a given type/color.
 
@@ -123,7 +124,7 @@ class SlidingPiecePosition(PiecePosition):
     def __str__(self):
         return f"{self.symbol}: {self.rank}, {self.file}, {self.present}, {self.mobility}"
 
-    def get_mobility(self, offsets: dict[str, int]):
+    def get_mobility(self, offsets: Dict[str, int]):
         mobility = {direction: 0 for direction in offsets.keys()}
 
         for direction, offset in offsets.items():
@@ -213,7 +214,7 @@ def get_sliding_mobility(board: chess.Board):
                 mobilities[key] = mobility
 
 
-def get_general_mobility(board: chess.Board) -> list[int]:
+def get_general_mobility(board: chess.Board) -> List[int]:
     """
     Get the number of legal moves for each piece.
 
@@ -625,7 +626,7 @@ def board_to_feat(board: chess.Board):
     return feat
 
 
-def get_san_moves(board: chess.Board, moves: list[chess.Move], move_count: int = 0) -> list[str]:
+def get_san_moves(board: chess.Board, moves: List[chess.Move], move_count: int = 0) -> List[str]:
     """
     Convert a move list to SAN.
 
