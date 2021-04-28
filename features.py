@@ -31,7 +31,7 @@ Colors = [chess.WHITE, chess.BLACK]
 def get_coordinates(piece, color, piece_name, board):
     # Coordinates: File, rank, present/not present
     locs = list(board.pieces(piece, color))
-    coords = [(loc % 8, int(loc / 8), 1) for loc in locs]
+    coords = [(int(loc / 8), int(loc % 8), 1) for loc in locs]
 
     if piece in [chess.PAWN, chess.KNIGHT, chess.ROOK]:
         # Sort by file. This should keep entropy down, I think.
@@ -55,6 +55,7 @@ class PiecePosition:
         self.symbol = symbol
         self.rank = rank
         self.file = file
+        self.position = self.rank * 8 + self.file
         self.present = present
 
     def __str__(self):
@@ -73,12 +74,10 @@ class SlidingPiecePosition(PiecePosition):
     def get_mobility(self, offsets):
         mobility = {direction: 0 for direction in offsets.keys()}
 
-        src_idx = (self.rank - 1) * 8 + (self.file - 1)
-
         for direction, offset in offsets.items():
-            dst_idx = src_idx + offset
-            while dst_idx > 0 and dst_idx < 64:
-                move = chess.Move(src_idx, dst_idx)
+            dst_idx = self.position + offset
+            while dst_idx >= 0 and dst_idx < 64:
+                move = chess.Move(self.position, dst_idx)
                 if move in self.legal_moves:
                     mobility[direction] += 1
                 else:
@@ -155,7 +154,7 @@ def board_to_feat(board):
                 key = piece_name + str(i)
                 feat[key] = position
                 c = cls(board, key, *position)
-                print(c)
+                # print(c)
 
     # Alternative way to determine piece locations
     # for file in range(8):
