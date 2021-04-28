@@ -246,6 +246,369 @@ def get_general_mobility(board: chess.Board) -> list[int]:
     return mobility
 
 
+def get_center_control(board: chess.Board):  # returns a list of 2 elements: black center control and white center control
+    allPiecesOnBoard = list()
+    wcc = 0  # white center control
+    bcc = 0  # black center control
+
+    # Part 1: Number of pieces on the 4 center squares for each player (contributes to bcc and wcc).
+    for color in Colors:
+        for piece in Pieces:
+            # Get the string for each piece
+            piece_name = chess.Piece(piece, color).symbol()
+            # K, Q, R, B, N, or P for white
+            # k, q, r, b, n, or p for black
+
+            cls = PositionClasses[piece_name.upper()]  # calls the corresponding constructor
+            # cls = KingPosition, QueenPosition, RookPosition, BishopPosition, KnightPosition, or PawnPosition
+
+            coords = get_coordinates(piece, color, piece_name, board)  # Coordinates: File, rank, present/not present
+            for coord in coords:
+                if (coord[2] != 0):
+                    allPiecesOnBoard.append(coord)
+
+            for i, position in enumerate(coords):  # for each square the given player has a piece of the given type on
+                key = piece_name + str(i)  # P0, K1, b2, etc.
+                c = cls(board, key, *position)  # piece name and position, and mobility if rook, bishop, or queen
+                print(c)
+                if (position == (3, 3, 1) or position == (4, 3, 1) or position == (3, 4, 1) or position == (4, 4, 1)):
+                    if (color == chess.WHITE):
+                        wcc += 1
+                    if (color == chess.BLACK):
+                        bcc += 1
+
+    # Part 2: Number of pieces that can attack the 4 center squares for each player (contributes to bcc and wcc)
+    # print("all pieces on board are", allPiecesOnBoard)
+    for color in Colors:
+        for piece in Pieces:
+            piece_name = chess.Piece(piece, color).symbol()
+            cls = PositionClasses[piece_name.upper()]
+            coords = get_coordinates(piece, color, piece_name, board)
+            for i, position in enumerate(coords):
+                if (position[2] == 1):
+                    if (piece_name == "P"):
+                        if (position == (2, 2, 1) or position == (3, 2, 1) or position == (4, 2, 1) or position == (
+                        5, 2, 1) or position == (2, 3, 1) or position == (3, 3, 1) or position == (
+                        4, 3, 1) or position == (5, 3, 1)):
+                            wcc += 1
+                    if (piece_name == "p"):
+                        if (position == (2, 5, 1) or position == (3, 5, 1) or position == (4, 5, 1) or position == (
+                        5, 5, 1) or position == (2, 4, 1) or position == (3, 4, 1) or position == (
+                        4, 4, 1) or position == (5, 4, 1)):
+                            bcc += 1
+                    if (piece_name == "N"):
+                        if (((position[0] == 1 or position[0] == 6) and 2 <= position[1] <= 5) or (
+                                (position[0] == 2 or position[0] == 5) and 1 <= position[1] <= 6) or (
+                                (position[0] == 3 or position[0] == 4) and (
+                                position[1] == 1 or position[1] == 2 or position[1] == 5 or position[1] == 6))):
+                            wcc += 1
+                    if (piece_name == "n"):
+                        if (((position[0] == 1 or position[0] == 6) and 2 <= position[1] <= 5) or (
+                                (position[0] == 2 or position[0] == 5) and 1 <= position[1] <= 6) or (
+                                (position[0] == 3 or position[0] == 4) and (
+                                position[1] == 1 or position[1] == 2 or position[1] == 5 or position[1] == 6))):
+                            bcc += 1
+                    if (piece_name == "B"):
+                        if (position == (2, 2, 1) or position == (2, 3, 1) or position == (2, 4, 1) or position == (
+                        2, 5, 1) or position == (5, 2, 1) or position == (5, 3, 1) or position == (
+                        5, 4, 1) or position == (5, 5, 1) or position == (3, 2, 1) or position == (
+                        4, 2, 1) or position == (3, 5, 1) or position == (4, 5, 1)):
+                            wcc += 1  # if diagonally touching a center square
+                        elif ((position == (1, 1, 1) and ((2, 2, 1) not in coords)) or (
+                                position == (2, 1, 1) and ((3, 2, 1) not in coords)) or (
+                                      position == (1, 2, 1) and ((2, 3, 1) not in coords)) or (
+                                      position == (1, 5, 1) and ((2, 4, 1) not in coords)) or (
+                                      position == (1, 6, 1) and ((2, 5, 1) not in coords)) or (
+                                      position == (2, 6, 1) and ((3, 5, 1) not in coords)) or (
+                                      position == (5, 6, 1) and ((4, 5, 1) not in coords)) or (
+                                      position == (6, 6, 1) and ((5, 5, 1) not in coords)) or (
+                                      position == (6, 5, 1) and ((5, 4, 1) not in coords)) or (
+                                      position == (5, 1, 1) and ((4, 2, 1) not in coords)) or (
+                                      position == (6, 1, 1) and ((5, 2, 1) not in coords)) or (
+                                      position == (6, 2, 1) and ((5, 3, 1) not in coords))):
+                            wcc += 1  # one empty space between bishop and a center square
+                        elif ((position == (0, 0, 1) and ((1, 1, 1) not in coords) and ((2, 2, 1) not in coords)) or (
+                                position == (0, 1, 1) and ((1, 2, 1) not in coords) and ((2, 3, 1) not in coords)) or (
+                                      position == (1, 0, 1) and ((2, 1, 1) not in coords) and (
+                                      (3, 2, 1) not in coords)) or (
+                                      position == (0, 6, 1) and ((1, 5, 1) not in coords) and (
+                                      (2, 4, 1) not in coords)) or (
+                                      position == (0, 7, 1) and ((1, 6, 1) not in coords) and (
+                                      (2, 5, 1) not in coords)) or (
+                                      position == (1, 7, 1) and ((2, 6, 1) not in coords) and (
+                                      (3, 5, 1) not in coords)) or (
+                                      position == (6, 7, 1) and ((5, 6, 1) not in coords) and (
+                                      (4, 5, 1) not in coords)) or (
+                                      position == (7, 7, 1) and ((6, 6, 1) not in coords) and (
+                                      (5, 5, 1) not in coords)) or (
+                                      position == (7, 6, 1) and ((6, 5, 1) not in coords) and (
+                                      (5, 4, 1) not in coords)) or (
+                                      position == (7, 1, 1) and ((6, 2, 1) not in coords) and (
+                                      (5, 3, 1) not in coords)) or (
+                                      position == (7, 0, 1) and ((6, 1, 1) not in coords) and (
+                                      (5, 2, 1) not in coords)) or (
+                                      position == (6, 0, 1) and ((5, 1, 1) not in coords) and (
+                                      (4, 2, 1) not in coords))):
+                            wcc += 1  # two empty spaces between bishop and a center square
+                    if (piece_name == "b"):
+                        if (position == (2, 2, 1) or position == (2, 3, 1) or position == (2, 4, 1) or position == (
+                        2, 5, 1) or position == (5, 2, 1) or position == (5, 3, 1) or position == (
+                        5, 4, 1) or position == (5, 5, 1) or position == (3, 2, 1) or position == (
+                        4, 2, 1) or position == (3, 5, 1) or position == (4, 5, 1)):
+                            bcc += 1  # if diagonally touching a center square
+                        elif ((position == (1, 1, 1) and ((2, 2, 1) not in coords)) or (
+                                position == (2, 1, 1) and ((3, 2, 1) not in coords)) or (
+                                      position == (1, 2, 1) and ((2, 3, 1) not in coords)) or (
+                                      position == (1, 5, 1) and ((2, 4, 1) not in coords)) or (
+                                      position == (1, 6, 1) and ((2, 5, 1) not in coords)) or (
+                                      position == (2, 6, 1) and ((3, 5, 1) not in coords)) or (
+                                      position == (5, 6, 1) and ((4, 5, 1) not in coords)) or (
+                                      position == (6, 6, 1) and ((5, 5, 1) not in coords)) or (
+                                      position == (6, 5, 1) and ((5, 4, 1) not in coords)) or (
+                                      position == (5, 1, 1) and ((4, 2, 1) not in coords)) or (
+                                      position == (6, 1, 1) and ((5, 2, 1) not in coords)) or (
+                                      position == (6, 2, 1) and ((5, 3, 1) not in coords))):
+                            bcc += 1  # one empty space between bishop and a center square
+                        elif ((position == (0, 0, 1) and ((1, 1, 1) not in coords) and ((2, 2, 1) not in coords)) or (
+                                position == (0, 1, 1) and ((1, 2, 1) not in coords) and ((2, 3, 1) not in coords)) or (
+                                      position == (1, 0, 1) and ((2, 1, 1) not in coords) and (
+                                      (3, 2, 1) not in coords)) or (
+                                      position == (0, 6, 1) and ((1, 5, 1) not in coords) and (
+                                      (2, 4, 1) not in coords)) or (
+                                      position == (0, 7, 1) and ((1, 6, 1) not in coords) and (
+                                      (2, 5, 1) not in coords)) or (
+                                      position == (1, 7, 1) and ((2, 6, 1) not in coords) and (
+                                      (3, 5, 1) not in coords)) or (
+                                      position == (6, 7, 1) and ((5, 6, 1) not in coords) and (
+                                      (4, 5, 1) not in coords)) or (
+                                      position == (7, 7, 1) and ((6, 6, 1) not in coords) and (
+                                      (5, 5, 1) not in coords)) or (
+                                      position == (7, 6, 1) and ((6, 5, 1) not in coords) and (
+                                      (5, 4, 1) not in coords)) or (
+                                      position == (7, 1, 1) and ((6, 2, 1) not in coords) and (
+                                      (5, 3, 1) not in coords)) or (
+                                      position == (7, 0, 1) and ((6, 1, 1) not in coords) and (
+                                      (5, 2, 1) not in coords)) or (
+                                      position == (6, 0, 1) and ((5, 1, 1) not in coords) and (
+                                      (4, 2, 1) not in coords))):
+                            bcc += 1  # two empty spaces between bishop and a center square
+                    if (piece_name == "K"):
+                        if (position == (2, 2, 1) or position == (2, 3, 1) or position == (2, 4, 1) or position == (
+                        2, 5, 1) or position == (5, 2, 1) or position == (5, 3, 1) or position == (
+                        5, 4, 1) or position == (5, 5, 1) or position == (3, 2, 1) or position == (
+                        4, 2, 1) or position == (3, 5, 1) or position == (4, 5, 1)):
+                            wcc += 1  # if directly touching a center square
+                    if (piece_name == "k"):
+                        if (position == (2, 2, 1) or position == (2, 3, 1) or position == (2, 4, 1) or position == (
+                        2, 5, 1) or position == (5, 2, 1) or position == (5, 3, 1) or position == (
+                        5, 4, 1) or position == (5, 5, 1) or position == (3, 2, 1) or position == (
+                        4, 2, 1) or position == (3, 5, 1) or position == (4, 5, 1)):
+                            bcc += 1  # if directly touching a center square
+                    if (piece_name == "R"):
+                        if (position == (2, 3, 1) or position == (2, 4, 1) or position == (5, 3, 1) or position == (
+                        5, 4, 1) or position == (3, 2, 1) or position == (4, 2, 1) or position == (
+                        3, 5, 1) or position == (4, 5, 1)):
+                            wcc += 1  # if directly horizontal or vertical to a center square
+                        elif ((position == (1, 3, 1) and ((2, 3, 1) not in coords)) or (
+                                position == (1, 4, 1) and ((2, 4, 1) not in coords)) or (
+                                      position == (3, 1, 1) and ((3, 2, 1) not in coords)) or (
+                                      position == (4, 1, 1) and ((4, 2, 1) not in coords)) or (
+                                      position == (6, 3, 1) and ((5, 3, 1) not in coords)) or (
+                                      position == (6, 4, 1) and ((5, 4, 1) not in coords)) or (
+                                      position == (3, 6, 1) and ((3, 5, 1) not in coords)) or (
+                                      position == (4, 6, 1) and ((4, 5, 1) not in coords))):
+                            wcc += 1  # if one empty space between rook and a center square
+                        elif ((position == (0, 3, 1) and ((1, 3, 1) not in coords) and ((2, 3, 1) not in coords)) or (
+                                position == (0, 4, 1) and ((1, 4, 1) not in coords) and ((2, 4, 1) not in coords)) or (
+                                      position == (3, 0, 1) and ((3, 1, 1) not in coords) and (
+                                      (3, 2, 1) not in coords)) or (
+                                      position == (4, 0, 1) and ((4, 1, 1) not in coords) and (
+                                      (4, 2, 1) not in coords)) or (
+                                      position == (7, 3, 1) and ((6, 3, 1) not in coords) and (
+                                      (5, 3, 1) not in coords)) or (
+                                      position == (7, 4, 1) and ((6, 4, 1) not in coords) and (
+                                      (5, 4, 1) not in coords)) or (
+                                      position == (3, 7, 1) and ((3, 6, 1) not in coords) and (
+                                      (3, 5, 1) not in coords)) or (
+                                      position == (4, 7, 1) and ((4, 6, 1) not in coords) and (
+                                      (4, 5, 1) not in coords))):
+                            wcc += 1  # if two empty spaces between rook and a center square
+                    if (piece_name == "r"):
+                        if (position == (2, 3, 1) or position == (2, 4, 1) or position == (5, 3, 1) or position == (
+                        5, 4, 1) or position == (3, 2, 1) or position == (4, 2, 1) or position == (
+                        3, 5, 1) or position == (4, 5, 1)):
+                            bcc += 1  # if directly horizontal or vertical to a center square
+                        elif ((position == (1, 3, 1) and ((2, 3, 1) not in coords)) or (
+                                position == (1, 4, 1) and ((2, 4, 1) not in coords)) or (
+                                      position == (3, 1, 1) and ((3, 2, 1) not in coords)) or (
+                                      position == (4, 1, 1) and ((4, 2, 1) not in coords)) or (
+                                      position == (6, 3, 1) and ((5, 3, 1) not in coords)) or (
+                                      position == (6, 4, 1) and ((5, 4, 1) not in coords)) or (
+                                      position == (3, 6, 1) and ((3, 5, 1) not in coords)) or (
+                                      position == (4, 6, 1) and ((4, 5, 1) not in coords))):
+                            bcc += 1  # if one empty space between rook and a center square
+                        elif ((position == (0, 3, 1) and ((1, 3, 1) not in coords) and ((2, 3, 1) not in coords)) or (
+                                position == (0, 4, 1) and ((1, 4, 1) not in coords) and ((2, 4, 1) not in coords)) or (
+                                      position == (3, 0, 1) and ((3, 1, 1) not in coords) and (
+                                      (3, 2, 1) not in coords)) or (
+                                      position == (4, 0, 1) and ((4, 1, 1) not in coords) and (
+                                      (4, 2, 1) not in coords)) or (
+                                      position == (7, 3, 1) and ((6, 3, 1) not in coords) and (
+                                      (5, 3, 1) not in coords)) or (
+                                      position == (7, 4, 1) and ((6, 4, 1) not in coords) and (
+                                      (5, 4, 1) not in coords)) or (
+                                      position == (3, 7, 1) and ((3, 6, 1) not in coords) and (
+                                      (3, 5, 1) not in coords)) or (
+                                      position == (4, 7, 1) and ((4, 6, 1) not in coords) and (
+                                      (4, 5, 1) not in coords))):
+                            bcc += 1  # if two empty spaces between rook and a center square
+                    if (piece_name == "Q"): #checks rook and bishop attacking positions
+                        if (position == (2, 2, 1) or position == (2, 3, 1) or position == (2, 4, 1) or position == (
+                        2, 5, 1) or position == (5, 2, 1) or position == (5, 3, 1) or position == (
+                        5, 4, 1) or position == (5, 5, 1) or position == (3, 2, 1) or position == (
+                        4, 2, 1) or position == (3, 5, 1) or position == (4, 5, 1)):
+                            wcc += 1
+                        elif ((position == (1, 1, 1) and ((2, 2, 1) not in coords)) or (
+                                position == (2, 1, 1) and ((3, 2, 1) not in coords)) or (
+                                      position == (1, 2, 1) and ((2, 3, 1) not in coords)) or (
+                                      position == (1, 5, 1) and ((2, 4, 1) not in coords)) or (
+                                      position == (1, 6, 1) and ((2, 5, 1) not in coords)) or (
+                                      position == (2, 6, 1) and ((3, 5, 1) not in coords)) or (
+                                      position == (5, 6, 1) and ((4, 5, 1) not in coords)) or (
+                                      position == (6, 6, 1) and ((5, 5, 1) not in coords)) or (
+                                      position == (6, 5, 1) and ((5, 4, 1) not in coords)) or (
+                                      position == (5, 1, 1) and ((4, 2, 1) not in coords)) or (
+                                      position == (6, 1, 1) and ((5, 2, 1) not in coords)) or (
+                                      position == (6, 2, 1) and ((5, 3, 1) not in coords))):
+                            wcc += 1
+                        elif ((position == (0, 0, 1) and ((1, 1, 1) not in coords) and ((2, 2, 1) not in coords)) or (
+                                position == (0, 1, 1) and ((1, 2, 1) not in coords) and ((2, 3, 1) not in coords)) or (
+                                      position == (1, 0, 1) and ((2, 1, 1) not in coords) and (
+                                      (3, 2, 1) not in coords)) or (
+                                      position == (0, 6, 1) and ((1, 5, 1) not in coords) and (
+                                      (2, 4, 1) not in coords)) or (
+                                      position == (0, 7, 1) and ((1, 6, 1) not in coords) and (
+                                      (2, 5, 1) not in coords)) or (
+                                      position == (1, 7, 1) and ((2, 6, 1) not in coords) and (
+                                      (3, 5, 1) not in coords)) or (
+                                      position == (6, 7, 1) and ((5, 6, 1) not in coords) and (
+                                      (4, 5, 1) not in coords)) or (
+                                      position == (7, 7, 1) and ((6, 6, 1) not in coords) and (
+                                      (5, 5, 1) not in coords)) or (
+                                      position == (7, 6, 1) and ((6, 5, 1) not in coords) and (
+                                      (5, 4, 1) not in coords)) or (
+                                      position == (7, 1, 1) and ((6, 2, 1) not in coords) and (
+                                      (5, 3, 1) not in coords)) or (
+                                      position == (7, 0, 1) and ((6, 1, 1) not in coords) and (
+                                      (5, 2, 1) not in coords)) or (
+                                      position == (6, 0, 1) and ((5, 1, 1) not in coords) and (
+                                      (4, 2, 1) not in coords))):
+                            wcc += 1
+                        elif (position == (2, 3, 1) or position == (2, 4, 1) or position == (5, 3, 1) or position == (
+                        5, 4, 1) or position == (3, 2, 1) or position == (4, 2, 1) or position == (
+                              3, 5, 1) or position == (4, 5, 1)):
+                            wcc += 1
+                        elif ((position == (1, 3, 1) and ((2, 3, 1) not in coords)) or (
+                                position == (1, 4, 1) and ((2, 4, 1) not in coords)) or (
+                                      position == (3, 1, 1) and ((3, 2, 1) not in coords)) or (
+                                      position == (4, 1, 1) and ((4, 2, 1) not in coords)) or (
+                                      position == (6, 3, 1) and ((5, 3, 1) not in coords)) or (
+                                      position == (6, 4, 1) and ((5, 4, 1) not in coords)) or (
+                                      position == (3, 6, 1) and ((3, 5, 1) not in coords)) or (
+                                      position == (4, 6, 1) and ((4, 5, 1) not in coords))):
+                            wcc += 1
+                        elif ((position == (0, 3, 1) and ((1, 3, 1) not in coords) and ((2, 3, 1) not in coords)) or (
+                                position == (0, 4, 1) and ((1, 4, 1) not in coords) and ((2, 4, 1) not in coords)) or (
+                                      position == (3, 0, 1) and ((3, 1, 1) not in coords) and (
+                                      (3, 2, 1) not in coords)) or (
+                                      position == (4, 0, 1) and ((4, 1, 1) not in coords) and (
+                                      (4, 2, 1) not in coords)) or (
+                                      position == (7, 3, 1) and ((6, 3, 1) not in coords) and (
+                                      (5, 3, 1) not in coords)) or (
+                                      position == (7, 4, 1) and ((6, 4, 1) not in coords) and (
+                                      (5, 4, 1) not in coords)) or (
+                                      position == (3, 7, 1) and ((3, 6, 1) not in coords) and (
+                                      (3, 5, 1) not in coords)) or (
+                                      position == (4, 7, 1) and ((4, 6, 1) not in coords) and (
+                                      (4, 5, 1) not in coords))):
+                            wcc += 1
+                    if (piece_name == "q"): #checks rook and bishop attacking positions
+                        if (position == (2, 2, 1) or position == (2, 3, 1) or position == (2, 4, 1) or position == (
+                        2, 5, 1) or position == (5, 2, 1) or position == (5, 3, 1) or position == (
+                        5, 4, 1) or position == (5, 5, 1) or position == (3, 2, 1) or position == (
+                        4, 2, 1) or position == (3, 5, 1) or position == (4, 5, 1)):
+                            bcc += 1
+                        elif ((position == (1, 1, 1) and ((2, 2, 1) not in coords)) or (
+                                position == (2, 1, 1) and ((3, 2, 1) not in coords)) or (
+                                      position == (1, 2, 1) and ((2, 3, 1) not in coords)) or (
+                                      position == (1, 5, 1) and ((2, 4, 1) not in coords)) or (
+                                      position == (1, 6, 1) and ((2, 5, 1) not in coords)) or (
+                                      position == (2, 6, 1) and ((3, 5, 1) not in coords)) or (
+                                      position == (5, 6, 1) and ((4, 5, 1) not in coords)) or (
+                                      position == (6, 6, 1) and ((5, 5, 1) not in coords)) or (
+                                      position == (6, 5, 1) and ((5, 4, 1) not in coords)) or (
+                                      position == (5, 1, 1) and ((4, 2, 1) not in coords)) or (
+                                      position == (6, 1, 1) and ((5, 2, 1) not in coords)) or (
+                                      position == (6, 2, 1) and ((5, 3, 1) not in coords))):
+                            bcc += 1
+                        elif ((position == (0, 0, 1) and ((1, 1, 1) not in coords) and ((2, 2, 1) not in coords)) or (
+                                position == (0, 1, 1) and ((1, 2, 1) not in coords) and ((2, 3, 1) not in coords)) or (
+                                      position == (1, 0, 1) and ((2, 1, 1) not in coords) and (
+                                      (3, 2, 1) not in coords)) or (
+                                      position == (0, 6, 1) and ((1, 5, 1) not in coords) and (
+                                      (2, 4, 1) not in coords)) or (
+                                      position == (0, 7, 1) and ((1, 6, 1) not in coords) and (
+                                      (2, 5, 1) not in coords)) or (
+                                      position == (1, 7, 1) and ((2, 6, 1) not in coords) and (
+                                      (3, 5, 1) not in coords)) or (
+                                      position == (6, 7, 1) and ((5, 6, 1) not in coords) and (
+                                      (4, 5, 1) not in coords)) or (
+                                      position == (7, 7, 1) and ((6, 6, 1) not in coords) and (
+                                      (5, 5, 1) not in coords)) or (
+                                      position == (7, 6, 1) and ((6, 5, 1) not in coords) and (
+                                      (5, 4, 1) not in coords)) or (
+                                      position == (7, 1, 1) and ((6, 2, 1) not in coords) and (
+                                      (5, 3, 1) not in coords)) or (
+                                      position == (7, 0, 1) and ((6, 1, 1) not in coords) and (
+                                      (5, 2, 1) not in coords)) or (
+                                      position == (6, 0, 1) and ((5, 1, 1) not in coords) and (
+                                      (4, 2, 1) not in coords))):
+                            bcc += 1
+                        elif (position == (2, 3, 1) or position == (2, 4, 1) or position == (5, 3, 1) or position == (
+                        5, 4, 1) or position == (3, 2, 1) or position == (4, 2, 1) or position == (
+                              3, 5, 1) or position == (4, 5, 1)):
+                            bcc += 1
+                        elif ((position == (1, 3, 1) and ((2, 3, 1) not in coords)) or (
+                                position == (1, 4, 1) and ((2, 4, 1) not in coords)) or (
+                                      position == (3, 1, 1) and ((3, 2, 1) not in coords)) or (
+                                      position == (4, 1, 1) and ((4, 2, 1) not in coords)) or (
+                                      position == (6, 3, 1) and ((5, 3, 1) not in coords)) or (
+                                      position == (6, 4, 1) and ((5, 4, 1) not in coords)) or (
+                                      position == (3, 6, 1) and ((3, 5, 1) not in coords)) or (
+                                      position == (4, 6, 1) and ((4, 5, 1) not in coords))):
+                            bcc += 1
+                        elif ((position == (0, 3, 1) and ((1, 3, 1) not in coords) and ((2, 3, 1) not in coords)) or (
+                                position == (0, 4, 1) and ((1, 4, 1) not in coords) and ((2, 4, 1) not in coords)) or (
+                                      position == (3, 0, 1) and ((3, 1, 1) not in coords) and (
+                                      (3, 2, 1) not in coords)) or (
+                                      position == (4, 0, 1) and ((4, 1, 1) not in coords) and (
+                                      (4, 2, 1) not in coords)) or (
+                                      position == (7, 3, 1) and ((6, 3, 1) not in coords) and (
+                                      (5, 3, 1) not in coords)) or (
+                                      position == (7, 4, 1) and ((6, 4, 1) not in coords) and (
+                                      (5, 4, 1) not in coords)) or (
+                                      position == (3, 7, 1) and ((3, 6, 1) not in coords) and (
+                                      (3, 5, 1) not in coords)) or (
+                                      position == (4, 7, 1) and ((4, 6, 1) not in coords) and (
+                                      (4, 5, 1) not in coords))):
+                            bcc += 1
+
+    center_control_list = list()
+    center_control_list.append(bcc)
+    center_control_list.append(wcc)
+    return center_control_list
+
+
 def board_to_feat(board: chess.Board):
     """
     Convert a board state into a set of features.
