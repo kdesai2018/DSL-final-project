@@ -5,6 +5,24 @@ import numpy as np
 from typing import Dict, List, Tuple
 
 '''
+ATTN: trey
+The only function you should ideally need to call from this file is `get_kush_features()`
+
+As defined in the function definition, just pass in a game and a df object, and i'll append
+the necessary data to the dataframe. There might be a small issue with column names, the `cols` 
+list I have below is what I'm using to initialize my dataframe
+
+
+Apologies in advance for the messy code haha, but everything should work without bugs. 
+I'm testing this on random game from 2013-01.pgn and it's run fine, so there shouldn't be an 
+syntactical/edge case issues :D
+
+
+'''
+
+
+
+'''
 I will return a pandas dataframe
 
 cols: event, site, data, round, white_username, black_username, white_win, black_win 
@@ -29,16 +47,6 @@ cols = ['move_number', 'black_pawn_islands', 'white_pawn_islands',
 'white_can_castle', 'black_can_castle', 'white_has_castled', 'black_has_castled',
 'white_king_mobility_top3', 'black_king_mobility_top3', 'current_player_in_check',
 'is_checkmate', 'is_stalemate', 'is_insufficient_material', 'piece_moved']
-
-
-# cols = ['event', 'site', 'date', 'round', 'white_username', 'black_username', 
-# 'white_win', 'black_win' 'white_elo', 'black_elo', 'white_rating_diff', 
-# 'black_rating_diff', 'ECO', 'opening', 'termination', 'time_control', 
-# 'utc_date', 'utc_time', 'black_pawn_islands', 'white_pawn_islands', 
-# 'black_single_pawns', 'white_single_pawns', 'black_pawn_supported_pawn',
-# 'white_pawn_supported_pawn', 'white_king_in_check', 'white', 'king_mobility_top3', 
-# 'black_king_in_check', 'black_king_mobility_top3', 'white_pieces_moved_upto_now', 
-# 'black_pieces_moved_upto_now', 'is_checkmate', 'is_statemate', 'is_insufficient_material']
 
 main = pd.DataFrame(columns=cols)
 
@@ -86,11 +94,6 @@ def get_pawn_structure(chesscolor, board):
     islands += int(possible_island)
 
     return (singletons, islands)
-
-
-
-
-
 
 def get_king_mobility(chesscolor, board):
     '''
@@ -190,60 +193,8 @@ def get_kush_features(game, df_append):
 if __name__ == '__main__':
     pgn = open(data_dir + '2013-01.pgn')
     game = chess.pgn.read_game(pgn)
+    game = chess.pgn.read_game(pgn)
     df = get_kush_features(game, main)
     print(game.mainline_moves())
     print(df)
     df.to_csv('tmp.csv')
-
-    # while game:
-    #     print(game)
-
-    #     tmp = pd.DataFrame(columns=cols)
-
-    #     # tmp['event'] = [game.headers['Event']]
-    #     # tmp['site'] = [game.headers['Site']]
-    #     # tmp['date'] = [game.headers['Date']]
-    #     # tmp['round'] = [game.headers['Round']]
-    #     # tmp['white_username'] = [game.headers['White']]
-    #     # tmp['black_username'] = [game.headers['Black']]
-    #     # res = game.headers['Result']
-    #     # white_win = True if res=='1-0' else False
-    #     # tmp['white_win'] = [white_win]
-    #     # tmp['black_win'] = [not white_win]
-    #     # tmp['white_elo'] = [game.headers['WhiteElo']]
-    #     # tmp['black_elo'] = [game.headers['BlackElo']]
-    #     # tmp['white_rating_diff'] = [game.headers['WhiteRatingDiff']]
-    #     # tmp['black_rating_diff'] = [game.headers['BlackRatingDiff']]
-    #     # tmp['ECO'] = [game.headers['ECO']]
-    #     # tmp['opening'] = [game.headers['Opening']]
-    #     # tmp['termination'] = [game.headers['Termination']]
-    #     # tmp['time_control'] = [game.headers['TimeControl']]
-    #     # tmp['utc_date'] = [game.headers['UTCDate']]
-    #     # tmp['utc_time'] = [game.headers['UTCTime']]
-
-    #     board = game.board()
-    #     print(board)
-    #     moves = game.mainline_moves()
-    #     san_moves = get_san_moves(board, moves, 15)
-    #     print(' '.join(san_moves))
-    #     print(board)
-
-    #     tmp['is_checkmate'] = board.is_checkmate()
-    #     tmp['is_stalemate'] = board.is_stalemate()
-    #     tmp['is_insufficient_material'] = board.is_insufficient_material()
-
-        
-
-
-
-
-    #     main = main.append(tmp)
-    #     # print(tmp)
-    #     # print(main.shape)
-        
-        
-        
-    #     break #only call this function for 1 game, itll return a df 
-    #     game = chess.pgn.read_game(pgn)
-
-    # board = game.board()
