@@ -620,6 +620,7 @@ def board_to_feat(board: chess.Board):
 
     feat['material'] = get_material(board)
     feat['mobility'] = get_general_mobility(board)
+    feat['center_control'] = get_center_control(board)
 
     return feat
 
