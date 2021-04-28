@@ -79,9 +79,13 @@ def get_coordinates(
     """
     Get the rank and file coordinates of all pieces of a given type/color.
 
+    Only use this function if you need to sort pieces on the board by their coordinates (like
+    computing per-piece mobility). There's almost certainly a more elegant way to do things using
+    the chess API.
+
     :param piece: The piece type.
     :param color: The piece color.
-    :param name: The character representing the piece (e.g. 'B' or 'n').
+    :param piece_name: The character representing the piece (e.g. 'B' or 'n').
     :param board: The current board state.
     :returns: A list of tuples of (rank, file, present_on_board).
     """
