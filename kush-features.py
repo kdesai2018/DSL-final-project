@@ -80,6 +80,10 @@ def get_kush_features(game, df_append):
     moves = game.mainline_moves()
 
     has_white_castled = has_black_castled = False
+
+    white_pieces_moved = set()
+    black_pieces_moved = set()
+
     turn = '-w'
     # assume that every dataframe is initialized with the initial state of a board
     for move in moves:
@@ -90,7 +94,7 @@ def get_kush_features(game, df_append):
         turn = '-b' if board.turn else '-w' # flip them here, since this is for the next move
 
         movesan = board.san(move)
-        print(movesan)
+
         if movesan in set(['0-0', '0-0-0']):
             if board.turn:
                 has_white_castled = True
@@ -100,10 +104,21 @@ def get_kush_features(game, df_append):
         # see whether current player is in check before we move
         ret['current_player_in_check'] = [board.is_check()]
         
+        origin = move.from_square
+
+        moved_piece = board.piece_at(origin)
+        if moved_piece.color:
+            white_pieces_moved.add(moved_piece.piece_type)
+        else:
+            black_pieces_moved.add(moved_piece.piece_type)
+
+        ret['white_pieces_moved_upto_now'] = [len(white_pieces_moved)]
+        ret['black_pieces_moved_upto_now'] = [len(black_pieces_moved)]
+        
         board.push(move)
 
 
-        get_num_single_pawns(chess.WHITE, board)
+        # get_num_single_pawns(chess.WHITE, board)
 
 
         
