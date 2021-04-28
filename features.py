@@ -213,6 +213,223 @@ def get_number_of_forks(board: chess.Board) -> Tuple[int, int, int, int]:
 
     return forks
 
+
+def get_pins_and_skewers(board: chess.Board) -> Tuple[int, int, int, int, int, int, int, int]:
+    # black's pins, white's pins, black's pins on the king, white's pins on the kings, black's skewers, white's skewers, black's skewers on the king, white's skewers on the king
+
+    # a pin is when you're attacking a piece, and a stronger piece is on the other side of the attacked piece
+    # a skewer is when you're attacking a piece, and a weaker piece is on the other side of the attacked piece
+
+    pins_and_skewers = [0, 0, 0, 0, 0, 0, 0, 0]
+
+    # print("finding pins and skewers")
+    for square in chess.SQUARES:  # goes from bottom left to bottom right, then upwards
+        attackerColor = None
+        attackingPieceSymbol = board.piece_at(square)  # R, p, None, etc.
+        if (str(attackingPieceSymbol) == "R") or (str(attackingPieceSymbol) == "r") or (
+                str(attackingPieceSymbol) == "B") or (str(attackingPieceSymbol) == "b") or (
+                str(attackingPieceSymbol) == "Q") or (str(attackingPieceSymbol) == "q"):
+            # only bishops, rooks, and queens can possibly skewer or pin a piece
+            # print(attackingPieceSymbol, "is attacking")
+            attackingPiece = chess.Piece.from_symbol(str(attackingPieceSymbol))  # R, q, B, etc. but as Piece object
+            attackerColor = attackingPiece.color  # True for white, False for black, None if no piece on current square
+
+            attackedSquares = board.attacks(
+                square)  # list(attackedSquares) = [1, 2, 3, 8, 16] for example (some are empty squares)
+
+            pinnningTheKing = False;  # king is behind the attacked piece
+            skeweringTheKing = False;  # king is the attacked piece
+            for sq in list(attackedSquares):
+                if board.piece_at(sq) is not None:
+                    attackedColor = chess.Piece.from_symbol(str(board.piece_at(sq))).color
+                    if (attackedColor == True and attackerColor == False):  # if black attacking a white piece
+                        # print("black ", attackingPiece, " is attacking white ", board.piece_at(sq))
+                        pieceExistsOnOtherSide = False
+                        # find the next piece on the other side of the attacked piece
+                        directionOfAttack = get_direction_of_attack(square, sq, board)  # square is attacking sq
+                        # print(direction_of_attack)
+                        # check the next squares in that direction until you find a piece
+                        nextSquareInt = sq
+                        while True:
+                            nextSquareInt = get_next_square(directionOfAttack, nextSquareInt,
+                                                            board)  # returns the int for your next square, or -1 if impossible to move that direction
+                            if nextSquareInt == -1:
+                                break
+                            if board.piece_at(nextSquareInt) is not None:
+                                pieceExistsOnOtherSide = True
+                                break
+                        if pieceExistsOnOtherSide:
+                            if chess.Piece.from_symbol(str(board.piece_at(
+                                    nextSquareInt))).color == True:  # if another white piece is on the other side of the attack
+                                # we have a pin or skewer depending on the piece type
+                                # print("this is a pin or skewer")
+                                attackedPieceIsStronger = compare_pieces(str(board.piece_at(sq)),
+                                                                         str(board.piece_at(nextSquareInt)))
+                                # print(attackedPieceIsStronger) #false is a pin, true is a skewer
+                                if attackedPieceIsStronger:
+                                    pins_and_skewers[4] += 1
+                                    if str(board.piece_at(sq)) == "K":
+                                        pins_and_skewers[6] += 1  # skewer on the king
+                                else:
+                                    pins_and_skewers[0] += 1
+                                    if str(board.piece_at(nextSquareInt)) == "K":
+                                        pins_and_skewers[2] += 1  # pin on the king
+                    elif (attackedColor == False and attackerColor == True):  # if white attacking a black piece
+                        # print("white ", attackingPiece, " is attacking black ", board.piece_at(sq))
+                        pieceExistsOnOtherSide = False
+                        # find the next piece on the other side of the attacked piece
+                        directionOfAttack = get_direction_of_attack(square, sq, board)  # square is attacking sq
+                        # check the next squares in that direction until you find a piece
+                        nextSquareInt = sq
+                        while True:
+                            nextSquareInt = get_next_square(directionOfAttack, nextSquareInt,
+                                                            board)  # returns the int for your next square, or -1 if impossible to move that direction
+                            if nextSquareInt == -1:
+                                break
+                            if board.piece_at(nextSquareInt) is not None:
+                                pieceExistsOnOtherSide = True
+                                break
+                        if pieceExistsOnOtherSide:
+                            if chess.Piece.from_symbol(str(board.piece_at(
+                                    nextSquareInt))).color == False:  # if another black piece is on the other side of the attack
+                                # we have a pin or skewer depending on the piece type
+                                # print("this is a pin or skewer")
+                                attackedPieceIsStronger = compare_pieces(str(board.piece_at(sq)),
+                                                                         str(board.piece_at(nextSquareInt)))
+                                # print(attackedPieceIsStronger) #false is a pin, true is a skewer
+                                if attackedPieceIsStronger:
+                                    pins_and_skewers[5] += 1
+                                    if str(board.piece_at(sq)) == "k":
+                                        pins_and_skewers[7] += 1  # skewer on the king
+                                else:
+                                    pins_and_skewers[1] += 1
+                                    if str(board.piece_at(nextSquareInt)) == "k":
+                                        pins_and_skewers[3] += 1  # pin on the king
+
+    return pins_and_skewers
+
+
+# gets direction in which a bishop, rook, or queen is attacking (helper method for get_pins_and_skewers)
+def get_direction_of_attack(attackingSquare: chess.Square, attackedSquare: chess.Square, board: chess.Board) -> str:
+    direction = ""
+
+    # get coordinates of attacker
+    # print("attacker square is", attackingSquare)
+    attackerFile = chess.square_file(attackingSquare)
+    attackerRank = chess.square_rank(attackingSquare)
+    # print("attacker coordinates are", attackerFile, attackerRank) #(x,y) coordinates, 0-indexed
+
+    # get coordinates of attacked piece
+    attackedFile = chess.square_file(attackedSquare)
+    attackedRank = chess.square_rank(attackedSquare)
+    # print("attacked coordinates are", attackedFile, attackedRank)
+
+    if (attackerFile > attackedFile) and (attackerRank < attackedRank):
+        direction = "NW"
+    elif (attackerFile == attackedFile) and (attackerRank < attackedRank):
+        direction = "N"
+    elif (attackerFile < attackedFile) and (attackerRank < attackedRank):
+        direction = "NE"
+    elif (attackerFile < attackedFile) and (attackerRank == attackedRank):
+        direction = "E"
+    elif (attackerFile < attackedFile) and (attackerRank > attackedRank):
+        direction = "SE"
+    elif (attackerFile == attackedFile) and (attackerRank > attackedRank):
+        direction = "S"
+    elif (attackerFile > attackedFile) and (attackerRank > attackedRank):
+        direction = "SW"
+    elif (attackerFile > attackedFile) and (attackerRank == attackedRank):
+        direction = "W"
+
+    return direction
+
+
+def get_next_square(direction: str, startingSquare: chess.Square, board: chess.Board) -> int:
+    # get coordinates of starting square, then move one space in the given direction, then return that new square
+    # returns -1 if moving in that direction is not possible
+    startingFile = chess.square_file(startingSquare)
+    startingRank = chess.square_rank(startingSquare)
+    nextFile = -1
+    nextRank = -1
+
+    if direction == "NW":
+        if (startingFile == 0) or (startingRank == 7):
+            return -1
+        nextFile = startingFile - 1
+        nextRank = startingRank + 1
+        return chess.square(nextFile, nextRank)
+    elif direction == "N":
+        if startingRank == 7:
+            return -1
+        nextFile = startingFile
+        nextRank = startingRank + 1
+        return chess.square(nextFile, nextRank)
+    elif direction == "NE":
+        if (startingFile == 7) or (startingRank == 7):
+            return -1
+        nextFile = startingFile + 1
+        nextRank = startingRank + 1
+        return chess.square(nextFile, nextRank)
+    elif direction == "E":
+        if startingFile == 7:
+            return -1
+        nextFile = startingFile + 1
+        nextRank = startingRank
+        return chess.square(nextFile, nextRank)
+    elif direction == "SE":
+        if (startingFile == 7) or (startingRank == 0):
+            return -1
+        nextFile = startingFile + 1
+        nextRank = startingRank - 1
+        return chess.square(nextFile, nextRank)
+    elif direction == "S":
+        if startingRank == 0:
+            return -1
+        nextFile = startingFile
+        nextRank = startingRank - 1
+        return chess.square(nextFile, nextRank)
+    elif direction == "SW":
+        if (startingFile == 0) or (startingRank == 0):
+            return -1
+        nextFile = startingFile - 1
+        nextRank = startingRank - 1
+        return chess.square(nextFile, nextRank)
+    else:  # direction is W
+        if startingFile == 0:
+            return -1
+        nextFile = startingFile - 1
+        nextRank = startingRank
+        return chess.square(nextFile, nextRank)
+
+
+# return True if attacked piece is stronger (skewer) than hidden piece, false if equal or weaker (pin)
+def compare_pieces(attackedPieceString, hiddenPieceString) -> bool:
+    if (attackedPieceString == "P") or (attackedPieceString == "p"):
+        return False
+    if (attackedPieceString == "B") or (attackedPieceString == "b") or (attackedPieceString == "N") or (
+            attackedPieceString == "n"):
+        if (hiddenPieceString == "P") or (hiddenPieceString == "p"):
+            return True
+        else:
+            return False
+    if (attackedPieceString == "R") or (attackedPieceString == "r"):
+        if (hiddenPieceString == "P") or (hiddenPieceString == "p") or (hiddenPieceString == "B") or (
+                hiddenPieceString == "b") or (hiddenPieceString == "N") or (hiddenPieceString == "n"):
+            return True
+        else:
+            return False
+    if (attackedPieceString == "Q") or (attackedPieceString == "q"):
+        if (hiddenPieceString == "K") or (hiddenPieceString == "k") or (hiddenPieceString == "Q") or (
+                hiddenPieceString == "q"):
+            return False
+        else:
+            return True
+    if (attackedPieceString == "K") or (attackedPieceString == "k"):
+        return True
+    else:
+        return True
+
+
 def board_to_feat(board: chess.Board):
     """
     Convert a board state into a set of features.
@@ -226,6 +443,7 @@ def board_to_feat(board: chess.Board):
     feat['mobility'] = get_mobility(board)
     feat['center_control'] = get_center_control(board)
     feat['forks'] = get_number_of_forks(board)
+    feat['pins_and_skewers'] = get_pins_and_skewers(board)
 
     return feat
 
