@@ -168,9 +168,10 @@ def get_center_control(board: chess.Board) -> Tuple[int, int]:
     return center_control
 
 
-def get_number_of_forks(board: chess.Board) -> Tuple[int, int]:
-    # [number of black pieces that have a fork, number of white pieces that have a fork]
-    forks = [0, 0]
+def get_number_of_forks(board: chess.Board) -> Tuple[int, int, int, int]:
+    # [number of black pieces that have a fork, number of white pieces that have a fork,
+    # number of black pieces that have a fork on the king, number of white pieces that have a fork on the king]
+    forks = [0, 0, 0, 0]
 
     for square in chess.SQUARES:  # goes from bottom left to bottom right, then upwards
         attackerColor = None
@@ -188,18 +189,27 @@ def get_number_of_forks(board: chess.Board) -> Tuple[int, int]:
         numWhiteAttacks = 0
         numBlackAttacks = 0
 
+        attackingTheKing = False;
         for sq in list(attackedSquares):
             # print(board.piece_at(x)) #P, Q, None, etc.
             if board.piece_at(sq) is not None:
                 attackedColor = chess.Piece.from_symbol(str(board.piece_at(sq))).color
                 if (attackedColor == True and attackerColor == False):
                     numBlackAttacks += 1
+                    if(board.piece_at(sq) == "K"):
+                        attackingTheKing = True
                 elif (attackedColor == False and attackerColor == True):
                     numWhiteAttacks += 1
+                    if (board.piece_at(sq) == "k"):
+                        attackingTheKing = True
         if (numWhiteAttacks > 1):
             forks[1] += 1
+            if (attackingTheKing):
+                forks[3] += 1
         if (numBlackAttacks > 1):
             forks[0] += 1
+            if (attackingTheKing):
+                forks[2] += 1
 
     return forks
 
