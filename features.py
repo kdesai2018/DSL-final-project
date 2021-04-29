@@ -429,6 +429,43 @@ def compare_pieces(attackedPieceString, hiddenPieceString) -> bool:
     else:
         return True
 
+def get_lowest_piece_controlling_each_square(color: chess.Color,
+                                             board: chess.Board):  # True for white, #False for black
+    lowest_controller = [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                         7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7]
+    for square in chess.SQUARES:  # 0 to 63
+        attackingPieceSymbol = board.piece_at(square)  # R, p, None, etc.
+        if attackingPieceSymbol is not None:
+            attackingPiece = chess.Piece.from_symbol(str(attackingPieceSymbol))  # R, q, B, etc. but as Piece object
+            attackerColor = attackingPiece.color  # True for white, False for black, None if no piece on current square
+
+            if attackerColor == color:  # only check attackers of the passed color
+                attackedSquares = board.attacks(
+                    square)  # list(attackedSquares) = [1, 2, 3, 8, 16] for example (some are empty squares)
+                for sq in list(attackedSquares):
+                    if lowest_controller[sq] > piece_to_int(str(attackingPieceSymbol)):
+                        lowest_controller[sq] = piece_to_int(str(attackingPieceSymbol))
+
+    # replace any remaining 7's with 0's
+    for i in range(64):
+        if lowest_controller[i] == 7:
+            lowest_controller[i] = 0
+
+    return lowest_controller
+
+def piece_to_int(piece: str):
+    if (piece == "P") or (piece == "p"):
+        return 1
+    if (piece == "N") or (piece == "n"):
+        return 2
+    if (piece == "B") or (piece == "b"):
+        return 3
+    if (piece == "R") or (piece == "r"):
+        return 4
+    if (piece == "Q") or (piece == "q"):
+        return 5
+    if (piece == "K") or (piece == "k"):
+        return 6
 
 def board_to_feat(board: chess.Board):
     """
@@ -444,6 +481,8 @@ def board_to_feat(board: chess.Board):
     feat['center_control'] = get_center_control(board)
     feat['forks'] = get_number_of_forks(board)
     feat['pins_and_skewers'] = get_pins_and_skewers(board)
+    feat['lowest_black_controllers'] = get_lowest_piece_controlling_each_square(chess.BLACK, board)
+    feat['lowest_white_controllers'] = get_lowest_piece_controlling_each_square(chess.WHITE, board)
 
     return feat
 
