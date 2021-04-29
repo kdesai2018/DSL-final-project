@@ -2,16 +2,25 @@
 
 # features.py: Extract features from boards
 
+import atexit
 from collections import OrderedDict
+from stockfish import Stockfish
 import time
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import pandas as pd
 
 import chess
 import chess.pgn
+import chess.engine
 
-data_dir = './data/'
+# Stockfish engine executable path, object, and time limit for analysis.
+StockfishModel = None
+StockfishModelDepth = 15
+
+# Location of the game file to parse and number of games to consider.
+GameFile = 'data/2013-01.pgn'
+GameCount = 1
 
 # The initial counts for each piece on the board.
 PieceCounts = OrderedDict(
@@ -536,7 +545,7 @@ def get_pawn_structure(chesscolor, board):
             continue
         elif dist not in set([-7, 1, 9]):  # case 3
             possible_island = False  # resset
-            island += 1
+            islands += 1
             continue
         else:  # case 4
             possible_island = True
@@ -568,6 +577,23 @@ def get_king_mobility(chesscolor, board):
     return int(mob)
 
 
+def get_stockfish_evaluation(board: chess.Board) -> float:
+    """
+    Evaluate a board using the Stockfish engine.
+
+    :param board: The current board state.
+    :returns: Stockfish's score for the board.
+    """
+    StockfishModel.set_fen_position(board.fen())
+    score = StockfishModel.get_evaluation()
+    if score['type'] == 'cp':
+        return score['value']
+
+    # FIXME: How do we want to handle mate?
+    print(score)
+    return 0
+
+
 def get_features(game):
     board = game.board()
     moves = game.mainline_moves()
@@ -579,15 +605,8 @@ def get_features(game):
 
     board_states = list()
 
-    turn = '-w'
-    # assume that every dataframe is initialized with the initial state of a board
     for move in moves:
-        # ret = pd.DataFrame(columns=cols)
         ret = dict()
-        move_num = board.fullmove_number
-        move_current = str(move_num) + turn
-
-        turn = '-b' if board.turn else '-w'  # flip them here, since this is for the next move
 
         movesan = board.san(move)
 
@@ -662,51 +681,39 @@ def get_features(game):
 
         controlling_sides = get_side_controlling_each_square(board)
         for square, control_sum in zip(chess.SQUARE_NAMES, controlling_sides):
-            ret[f'side_controlling_{square}_'] = control_sum  # positive means white has more pieces supporting the square, negative for black
+            # positive means white has more pieces supporting the square, negative for black
+            ret[f'side_controlling_{square}_'] = control_sum
+
+        ret['stockfish_evaluation'] = get_stockfish_evaluation(board)
+
+        print(board.fen())
+        print(ret['stockfish_evaluation'])
 
         board_states.append(ret)
 
-        # Uncommented this after adding a new feature to verify the types:
-        # for k, v in ret.items():
-        #     assert type(k) == str
-        #     assert type(v) in [int, bool]
+        # Uncomment this after adding a new feature to verify the types:
+        for k, v in ret.items():
+            assert type(k) == str
+            assert type(v) in [int, bool, float]
 
-    # return pd.DataFrame.from_records(board_states)
     return board_states
 
 
-def get_san_moves(board: chess.Board, moves: List[chess.Move], move_count: int = 0) -> List[str]:
-    """
-    Convert a move list to SAN.
-
-    :param board: The starting board state.
-    :param moves: The list of moves.
-    :param move_count: The maximum number of moves to apply.
-    :returns: A list of moves in standard algebraic notation.
-    """
-    san_moves = list()
-
-    for move in moves:
-        san_moves.append(board.san(move))
-        board.push(move)  # Apply the move
-        move_count -= 1
-        if move_count == 0:
-            break
-
-    return san_moves
-
-
 if __name__ == '__main__':
-    pgn = open(data_dir + '2013-01.pgn')
-    game = chess.pgn.read_game(pgn)
+    pgn = open(GameFile)
 
-    print(game)
+    StockfishModel = Stockfish()
+    StockfishModel.set_depth(StockfishModelDepth)
 
-    board = game.board()
-    moves = game.mainline_moves()
+    print(f"Games from {GameFile} (at most {GameCount})")
 
-    t0 = time.time()
-    board_states = get_features(game)
-    t1 = time.time()
-    elapsed = t1 - t0
-    print(f'Elapsed: {elapsed} seconds')
+    games_processed = 0
+    while games_processed < GameCount:
+        game = chess.pgn.read_game(pgn)
+
+        t0 = time.time()
+        board_states = get_features(game)
+        t1 = time.time()
+        elapsed = t1 - t0
+        games_processed += 1
+        print(f'Processed game {games_processed} in {elapsed} seconds')
