@@ -3,7 +3,10 @@
 # features.py: Extract features from boards
 
 from collections import OrderedDict
+import time
 from typing import Dict, List, Tuple
+
+import pandas as pd
 
 import chess
 import chess.pgn
@@ -15,8 +18,8 @@ PieceCounts = OrderedDict(
     [
         # White pieces
         ('K', 1),
-        ('R', 2),
         ('Q', 1),
+        ('R', 2),
         ('B', 2),
         ('N', 2),
         ('P', 8),
@@ -49,11 +52,24 @@ ColorSigns = {
     chess.BLACK: -1,
 }
 
-Pieces = [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]
+PieceTypes = [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]
 
 Colors = [chess.WHITE, chess.BLACK]
 
 CenterSquares = chess.SquareSet([chess.D4, chess.E4, chess.D5, chess.E5])
+
+ForkTypes = ['black_forks', 'white_forks', 'king_black_forks', 'king_white_forks']
+
+PinSkewerTypes = [
+    'black_pins',
+    'white_pins',
+    'black_king_pins',
+    'white_king_pins',
+    'black_skewers',
+    'white_skewers',
+    'black_king_skewers',
+    'white_king_skewers',
+]
 
 
 def get_material(board: chess.Board) -> (int, int):
@@ -89,12 +105,12 @@ def get_coordinates(
     :param board: The current board state.
     :returns: A list of tuples of (rank, file, present_on_board).
     """
-    locs = list(board.pieces(piece, color))
+    locs = board.pieces(piece, color)
     coords = [(int(loc / 8), int(loc % 8), 1) for loc in locs]
 
     if piece in [chess.PAWN, chess.KNIGHT, chess.ROOK]:
         # Sort by file. This should keep entropy down, I think.
-        coords.sort(key=lambda file_rank: file_rank[0])
+        coords.sort(key=lambda rank_file: rank_file[1])
     elif piece == chess.BISHOP and coords:
         # Keep each bishop in a specific position.
         if len(coords) == 1:
@@ -124,9 +140,9 @@ def get_mobility(board: chess.Board) -> List[int]:
     for color in Colors:
         board.turn = color
         moves = set(board.legal_moves)
-        for piece in Pieces:
-            piece_name = chess.Piece(piece, color).symbol()
-            coords = get_coordinates(piece, color, piece_name, board)
+        for piece_type in PieceTypes:
+            piece_name = chess.Piece(piece_type, color).symbol()
+            coords = get_coordinates(piece_type, color, piece_name, board)
             for i, coordinates in enumerate(coords):
                 key = piece_name + str(i)
                 vector_position = PieceVectorPositions[key]
@@ -142,6 +158,28 @@ def get_mobility(board: chess.Board) -> List[int]:
     board.turn = original_turn
 
     return mobility
+
+
+def get_positions(board: chess.Board) -> List[Tuple[int, int]]:
+    """
+    Get the location of each piece on the board.
+
+    :param board: The current board state.
+    :returns: A list of piece locations, ordered by PieceVectorPositions.
+    """
+    positions = [0] * len(PieceNames)
+
+    # This looks like a nasty loop nest, but the inner loop only runs 32 times.
+    for color in Colors:
+        for piece_type in PieceTypes:
+            piece_name = chess.Piece(piece_type, color).symbol()
+            coords = get_coordinates(piece_type, color, piece_name, board)
+            for i, coordinates in enumerate(coords):
+                key = piece_name + str(i)
+                vector_position = PieceVectorPositions[key]
+                positions[vector_position] = (coordinates[0], coordinates[1])
+
+    return positions
 
 
 def get_center_control(board: chess.Board) -> Tuple[int, int]:
@@ -215,7 +253,9 @@ def get_number_of_forks(board: chess.Board) -> Tuple[int, int, int, int]:
     return forks
 
 
-def get_pins_and_skewers(board: chess.Board) -> Tuple[int, int, int, int, int, int, int, int]:
+def get_pins_and_skewers(
+    board: chess.Board,
+) -> Tuple[int, int, int, int, int, int, int, int]:
     # [0] = black's pins
     # [1] = white's pins
     # [2] = black's pins on the king
@@ -298,12 +338,12 @@ def get_pins_and_skewers(board: chess.Board) -> Tuple[int, int, int, int, int, i
             # print(attackedPieceIsStronger) #false is a pin, true is a skewer
             if attackedPieceIsStronger:
                 pins_and_skewers[SkewerIdx + offset] += 1
-                if str(board.piece_at(sq)) == "K":
+                if str(board.piece_at(sq)) == 'K':
                     # skewer on the king
                     pins_and_skewers[KingSkewerIdx + offset] += 1
             else:
                 pins_and_skewers[PinIdx + offset] += 1
-                if str(board.piece_at(nextSquareInt)) == "K":
+                if str(board.piece_at(nextSquareInt)) == 'K':
                     # pin on the king
                     pins_and_skewers[KingPinIdx + offset] += 1
 
@@ -328,21 +368,21 @@ def get_direction_of_attack(
     # print("attacked coordinates are", attackedFile, attackedRank)
 
     if (attackerFile > attackedFile) and (attackerRank < attackedRank):
-        direction = "NW"
+        direction = 'NW'
     elif (attackerFile == attackedFile) and (attackerRank < attackedRank):
-        direction = "N"
+        direction = 'N'
     elif (attackerFile < attackedFile) and (attackerRank < attackedRank):
-        direction = "NE"
+        direction = 'NE'
     elif (attackerFile < attackedFile) and (attackerRank == attackedRank):
-        direction = "E"
+        direction = 'E'
     elif (attackerFile < attackedFile) and (attackerRank > attackedRank):
-        direction = "SE"
+        direction = 'SE'
     elif (attackerFile == attackedFile) and (attackerRank > attackedRank):
-        direction = "S"
+        direction = 'S'
     elif (attackerFile > attackedFile) and (attackerRank > attackedRank):
-        direction = "SW"
+        direction = 'SW'
     elif (attackerFile > attackedFile) and (attackerRank == attackedRank):
-        direction = "W"
+        direction = 'W'
 
     return direction
 
@@ -355,43 +395,43 @@ def get_next_square(direction: str, startingSquare: chess.Square, board: chess.B
     nextFile = -1
     nextRank = -1
 
-    if direction == "NW":
+    if direction == 'NW':
         if (startingFile == 0) or (startingRank == 7):
             return -1
         nextFile = startingFile - 1
         nextRank = startingRank + 1
         return chess.square(nextFile, nextRank)
-    elif direction == "N":
+    elif direction == 'N':
         if startingRank == 7:
             return -1
         nextFile = startingFile
         nextRank = startingRank + 1
         return chess.square(nextFile, nextRank)
-    elif direction == "NE":
+    elif direction == 'NE':
         if (startingFile == 7) or (startingRank == 7):
             return -1
         nextFile = startingFile + 1
         nextRank = startingRank + 1
         return chess.square(nextFile, nextRank)
-    elif direction == "E":
+    elif direction == 'E':
         if startingFile == 7:
             return -1
         nextFile = startingFile + 1
         nextRank = startingRank
         return chess.square(nextFile, nextRank)
-    elif direction == "SE":
+    elif direction == 'SE':
         if (startingFile == 7) or (startingRank == 0):
             return -1
         nextFile = startingFile + 1
         nextRank = startingRank - 1
         return chess.square(nextFile, nextRank)
-    elif direction == "S":
+    elif direction == 'S':
         if startingRank == 0:
             return -1
         nextFile = startingFile
         nextRank = startingRank - 1
         return chess.square(nextFile, nextRank)
-    elif direction == "SW":
+    elif direction == 'SW':
         if (startingFile == 0) or (startingRank == 0):
             return -1
         nextFile = startingFile - 1
@@ -410,11 +450,9 @@ def compare_pieces(attacked_piece, hidden_piece):
     return attacked_piece.piece_type > hidden_piece.piece_type
 
 
-def get_lowest_piece_controlling_each_square(color: chess.Color, board: chess.Board) -> List[int]:
+def get_square_control(color: chess.Color, board: chess.Board) -> List[int]:
     NoAttacker = chess.KING + 1
     lowest_controller = [NoAttacker] * len(chess.SQUARES)
-
-    print(len(lowest_controller))
 
     for square in chess.SQUARES:  # 0 to 63
         attackingPiece = board.piece_at(square)
@@ -441,24 +479,173 @@ def get_lowest_piece_controlling_each_square(color: chess.Color, board: chess.Bo
     return lowest_controller
 
 
-def board_to_feat(board: chess.Board):
+def get_pawn_structure(chesscolor, board):
     """
-    Convert a board state into a set of features.
+    color = True if white, else False
 
-    :param board: The current board state.
-    :returns: A dictionary of features.
+    an island is defined as two or more pawns next to each other
+    return: (single_pawns, islands)
     """
-    feat = dict()
 
-    feat['material'] = get_material(board)
-    feat['mobility'] = get_mobility(board)
-    feat['center_control'] = get_center_control(board)
-    feat['forks'] = get_number_of_forks(board)
-    feat['pins_and_skewers'] = get_pins_and_skewers(board)
-    feat['lowest_black_controllers'] = get_lowest_piece_controlling_each_square(chess.BLACK, board)
-    feat['lowest_white_controllers'] = get_lowest_piece_controlling_each_square(chess.WHITE, board)
+    sqset = board.pieces(chess.PAWN, chesscolor)
 
-    return feat
+    islands = singletons = 0
+    possible_island = False
+
+    for s in range(len(sqset) - 1):
+        cur_pawn = list(sqset)[s]
+        next_pawn = list(sqset)[s + 1]
+
+        file_diff = (next_pawn % 8) - (cur_pawn % 8)
+        dist = next_pawn - cur_pawn
+
+        """
+            case 1: single pawn, no pawn in next file -> singleton += 1
+            case 2: single pawn with 2 in same file, nothing in next -> singleton+=1
+            case 3: single pawn, pawn in next file but not connecting/next to -> island+=1
+            case 4: pawn with connecting pawn in next file-> set flag, continue
+
+            here, cases 1
+        """
+
+        if file_diff != 1:  # cases 1 and 2
+            singletons += 1
+            continue
+        elif dist not in set([-7, 1, 9]):  # case 3
+            possible_island = False  # resset
+            island += 1
+            continue
+        else:  # case 4
+            possible_island = True
+            continue
+
+    islands += int(possible_island)
+
+    return (singletons, islands)
+
+
+def get_king_mobility(chesscolor, board):
+    """
+    color = True if white, else False
+    """
+    mob = 3
+    sqset = board.pieces(chess.KING, chesscolor)
+    loc = list(sqset)[0]
+    checker = 8 if chesscolor else -8
+    dist = [7, 8, 9]
+    if not chesscolor:
+        dist = [l * -1 for l in dist]
+
+    if loc + checker < 64 and loc + checker >= 0:
+        for di in dist:
+            next_sq = loc + di
+            if board.piece_at(next_sq):
+                mob -= 1
+
+    return int(mob)
+
+
+def get_features(game):
+    board = game.board()
+    moves = game.mainline_moves()
+
+    has_white_castled = has_black_castled = False
+
+    white_pieces_moved = set()
+    black_pieces_moved = set()
+
+    board_states = list()
+
+    turn = '-w'
+    # assume that every dataframe is initialized with the initial state of a board
+    for move in moves:
+        # ret = pd.DataFrame(columns=cols)
+        ret = dict()
+        move_num = board.fullmove_number
+        move_current = str(move_num) + turn
+
+        turn = '-b' if board.turn else '-w'  # flip them here, since this is for the next move
+
+        movesan = board.san(move)
+
+        if movesan in set(['0-0', '0-0-0']):
+            if board.turn:
+                has_white_castled = True
+            else:
+                has_black_castled = True
+
+        # see whether current player is in check before we move
+        ret['current_player_in_check'] = board.is_check()
+
+        origin = move.from_square
+
+        moved_piece = board.piece_at(origin)
+        if moved_piece.color == chess.WHITE:
+            white_pieces_moved.add(moved_piece.piece_type)
+        else:
+            black_pieces_moved.add(moved_piece.piece_type)
+
+        ret['white_pieces_moved_upto_now'] = len(white_pieces_moved)
+        ret['black_pieces_moved_upto_now'] = len(black_pieces_moved)
+        ret['piece_moved'] = moved_piece.piece_type
+        board.push(move)
+
+        w_single, w_islands = get_pawn_structure(chess.WHITE, board)
+        b_single, b_islands = get_pawn_structure(chess.BLACK, board)
+
+        ret['white_pawn_islands'] = w_islands
+        ret['black_pawn_islands'] = b_islands
+        ret['black_single_pawns'] = b_single
+        ret['white_single_pawns'] = w_single
+
+        ret['white_king_mobility_top3'] = get_king_mobility(chess.WHITE, board)
+        ret['black_king_mobility_top3'] = get_king_mobility(chess.BLACK, board)
+
+        ret['white_can_castle'] = board.has_castling_rights(chess.WHITE)
+        ret['black_can_castle'] = board.has_castling_rights(chess.BLACK)
+
+        ret['white_has_castled'] = has_white_castled
+        ret['black_has_castled'] = has_black_castled
+
+        # ret['move_number'] = move_current
+        ret['fullmove_number'] = board.fullmove_number
+        ret['player_to_move'] = board.turn
+        ret['is_checkmate'] = board.is_checkmate()
+        ret['is_stalemate'] = board.is_stalemate()
+        ret['is_insufficient_material'] = board.is_insufficient_material()
+
+        ret['black_material'], ret['white_material'] = get_material(board)
+
+        for piece, mobility in zip(PieceNames, get_mobility(board)):
+            ret[f'{piece}_mobility'] = mobility
+
+        for piece, (rank, file) in zip(PieceNames, get_positions(board)):
+            ret[f'{piece}_rank'] = rank
+            ret[f'{piece}_file'] = file
+
+        ret['black_center_control'], ret['white_center_control'] = get_center_control(board)
+
+        for fork_type, fork_count in zip(ForkTypes, get_number_of_forks(board)):
+            ret[fork_type] = fork_count
+
+        for pin_skewer_type, pin_skewer_count in zip(PinSkewerTypes, get_pins_and_skewers(board)):
+            ret[pin_skewer_type] = pin_skewer_count
+
+        black_control = get_square_control(chess.BLACK, board)
+        white_control = get_square_control(chess.WHITE, board)
+        for square, black_cont, white_cont in zip(chess.SQUARE_NAMES, black_control, white_control):
+            ret[f'black_{square}_control'] = black_cont
+            ret[f'white_{square}_control'] = white_cont
+
+        board_states.append(ret)
+
+        # Uncommented this after adding a new feature to verify the types:
+        # for k, v in ret.items():
+        #     assert type(k) == str
+        #     assert type(v) in [int, bool]
+
+    # return pd.DataFrame.from_records(board_states)
+    return board_states
 
 
 def get_san_moves(board: chess.Board, moves: List[chess.Move], move_count: int = 0) -> List[str]:
@@ -490,13 +677,9 @@ if __name__ == '__main__':
 
     board = game.board()
     moves = game.mainline_moves()
-    san_moves = get_san_moves(board, moves, 15)
-    print(' '.join(san_moves))
 
-    feat = board_to_feat(board)
-
-    print("Board features:")
-    for name, value in feat.items():
-        print(name, value)
-
-    print(board)
+    t0 = time.time()
+    board_states = get_features(game)
+    t1 = time.time()
+    elapsed = t1 - t0
+    print(f'Elapsed: {elapsed} seconds')
