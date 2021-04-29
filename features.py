@@ -479,6 +479,29 @@ def get_square_control(color: chess.Color, board: chess.Board) -> List[int]:
     return lowest_controller
 
 
+def get_side_controlling_each_square(board: chess.Board):
+    # for each piece, if it's white, add 1 to each square it's attacking, otherwise subtract one from each square it's attacking
+    controlling_side = [0] * len(chess.SQUARES)
+
+    for square in chess.SQUARES:  # 0 to 63
+        attackingPiece = board.piece_at(square)
+
+        if attackingPiece is None:
+            continue
+
+        attackerColor = attackingPiece.color
+        attackingType = attackingPiece.piece_type
+
+        # list(attackedSquares) = [1, 2, 3, 8, 16] for example (some are empty squares)
+        for sq in board.attacks(square):
+            if attackerColor == chess.WHITE:
+                controlling_side[sq] += 1
+            else:
+                controlling_side[sq] -= 1
+
+    return controlling_side
+
+
 def get_pawn_structure(chesscolor, board):
     """
     color = True if white, else False
@@ -636,6 +659,10 @@ def get_features(game):
         for square, black_cont, white_cont in zip(chess.SQUARE_NAMES, black_control, white_control):
             ret[f'black_{square}_control'] = black_cont
             ret[f'white_{square}_control'] = white_cont
+
+        controlling_sides = get_side_controlling_each_square(board)
+        for square, control_sum in zip(chess.SQUARE_NAMES, controlling_sides):
+            ret[f'side_controlling_{square}_'] = control_sum  # positive means white has more pieces supporting the square, negative for black
 
         board_states.append(ret)
 
