@@ -2,10 +2,11 @@
 
 # features.py: Extract features from boards
 
-import atexit
+import argparse
 from collections import OrderedDict
 from stockfish import Stockfish
 import time
+import traceback
 from typing import List, Tuple
 
 import pandas as pd
@@ -14,13 +15,22 @@ import chess
 import chess.pgn
 import chess.engine
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--game-file", type=str, required=True, help="Game file to parse")
+parser.add_argument(
+    "--game-count", type=int, required=True, help="Maximum number of games to parse"
+)
+parser.add_argument("--out-file", type=str, required=True, help="Output file")
+parser.add_argument("--skip-games", type=int, default=0, help="Skip first N games")
+
 # Stockfish engine executable path, object, and time limit for analysis.
 StockfishModel = None
-StockfishModelDepth = 15
+StockfishModelDepth = 16
 
 # Location of the game file to parse and number of games to consider.
-GameFile = 'data/2013-01.pgn'
-GameCount = 1
+GameFile = None
+GameCount = 0
+OutputFile = None
 
 # The initial counts for each piece on the board.
 PieceCounts = OrderedDict(
@@ -154,7 +164,11 @@ def get_mobility(board: chess.Board) -> List[int]:
             coords = get_coordinates(piece_type, color, piece_name, board)
             for i, coordinates in enumerate(coords):
                 key = piece_name + str(i)
-                vector_position = PieceVectorPositions[key]
+                try:
+                    vector_position = PieceVectorPositions[key]
+                except KeyError:
+                    # Promotion
+                    continue
                 if not coordinates[2]:
                     # Piece is not in play
                     move_count = -1
@@ -185,10 +199,37 @@ def get_positions(board: chess.Board) -> List[Tuple[int, int]]:
             coords = get_coordinates(piece_type, color, piece_name, board)
             for i, coordinates in enumerate(coords):
                 key = piece_name + str(i)
-                vector_position = PieceVectorPositions[key]
+                try:
+                    vector_position = PieceVectorPositions[key]
+                except KeyError:
+                    # Promotion
+                    continue
                 positions[vector_position] = (coordinates[0], coordinates[1])
 
     return positions
+
+
+def get_promotions(board: chess.Board) -> List[Tuple[str, int]]:
+    """
+    Get the number of extra (promoted) pieces of each type.
+
+    :param board: The current board state.
+    :returns: Pairs of (piece symbol, promoted count).
+    """
+    promotions = list()
+
+    for color in Colors:
+        for piece_type in PieceTypes:
+            if piece_type == chess.PAWN:
+                continue
+            piece_name = chess.Piece(piece_type, color).symbol()
+            count = len(board.pieces(piece_type, color))
+            extras = count - PieceCounts[piece_name]
+            extras = extras if extras >= 1 else 0
+            key = f"extra_{piece_name}"
+            promotions.append((key, extras))
+
+    return promotions
 
 
 def get_center_control(board: chess.Board) -> Tuple[int, int]:
@@ -571,8 +612,11 @@ def get_king_mobility(chesscolor, board):
     if loc + checker < 64 and loc + checker >= 0:
         for di in dist:
             next_sq = loc + di
-            if board.piece_at(next_sq):
-                mob -= 1
+            try:
+                if board.piece_at(next_sq):
+                    mob -= 1
+            except IndexError:
+                pass
 
     return int(mob)
 
@@ -589,9 +633,16 @@ def get_stockfish_evaluation(board: chess.Board) -> float:
     if score['type'] == 'cp':
         return score['value']
 
-    # FIXME: How do we want to handle mate?
-    print(score)
-    return 0
+    # Checkmate is 30,000 centipawns, and move before that is 1,000 centipawns. So mate in 3
+    # evaluates to (roughly) 27,000 centipawns (https://chess.stackexchange.com/q/21862).
+    moves_remaining = score['value']
+    if moves_remaining < 0:
+        # Black to mate
+        offset = -30000
+    else:
+        # White to mate
+        offset = 30000
+    return offset - 1000 * moves_remaining
 
 
 def get_features(game):
@@ -617,7 +668,7 @@ def get_features(game):
                 has_black_castled = True
 
         # see whether current player is in check before we move
-        ret['current_player_in_check'] = board.is_check()
+        ret['current_player_in_check'] = int(board.is_check())
 
         origin = move.from_square
 
@@ -643,18 +694,18 @@ def get_features(game):
         ret['white_king_mobility_top3'] = get_king_mobility(chess.WHITE, board)
         ret['black_king_mobility_top3'] = get_king_mobility(chess.BLACK, board)
 
-        ret['white_can_castle'] = board.has_castling_rights(chess.WHITE)
-        ret['black_can_castle'] = board.has_castling_rights(chess.BLACK)
+        ret['white_can_castle'] = int(board.has_castling_rights(chess.WHITE))
+        ret['black_can_castle'] = int(board.has_castling_rights(chess.BLACK))
 
-        ret['white_has_castled'] = has_white_castled
-        ret['black_has_castled'] = has_black_castled
+        ret['white_has_castled'] = int(has_white_castled)
+        ret['black_has_castled'] = int(has_black_castled)
 
-        # ret['move_number'] = move_current
         ret['fullmove_number'] = board.fullmove_number
-        ret['player_to_move'] = board.turn
-        ret['is_checkmate'] = board.is_checkmate()
-        ret['is_stalemate'] = board.is_stalemate()
-        ret['is_insufficient_material'] = board.is_insufficient_material()
+        # It might be easier for a model to use 1 and -1 instead of 1 and 0.
+        ret['player_to_move'] = 1 if board.turn == chess.WHITE else -1
+        ret['is_checkmate'] = int(board.is_checkmate())
+        ret['is_stalemate'] = int(board.is_stalemate())
+        ret['is_insufficient_material'] = int(board.is_insufficient_material())
 
         ret['black_material'], ret['white_material'] = get_material(board)
 
@@ -664,6 +715,9 @@ def get_features(game):
         for piece, (rank, file) in zip(PieceNames, get_positions(board)):
             ret[f'{piece}_rank'] = rank
             ret[f'{piece}_file'] = file
+
+        for promoted_piece, count in get_promotions(board):
+            ret[promoted_piece] = count
 
         ret['black_center_control'], ret['white_center_control'] = get_center_control(board)
 
@@ -682,38 +736,66 @@ def get_features(game):
         controlling_sides = get_side_controlling_each_square(board)
         for square, control_sum in zip(chess.SQUARE_NAMES, controlling_sides):
             # positive means white has more pieces supporting the square, negative for black
-            ret[f'side_controlling_{square}_'] = control_sum
+            ret[f'side_controlling_{square}'] = control_sum
 
         ret['stockfish_evaluation'] = get_stockfish_evaluation(board)
 
-        print(board.fen())
-        print(ret['stockfish_evaluation'])
+        # print(board.fen(), "-> score", ret['stockfish_evaluation'])
 
         board_states.append(ret)
 
         # Uncomment this after adding a new feature to verify the types:
-        for k, v in ret.items():
-            assert type(k) == str
-            assert type(v) in [int, bool, float]
+        # for k, v in ret.items():
+        #     assert type(k) == str
+        #     assert type(v) == int
 
     return board_states
 
 
+def get_next_board_features(pgn):
+    print('hello')
+    game = chess.pgn.read_game(pgn)
+    feats = get_features(game)
+    print('done')
+    return feats
+
+
+def got_board_features(board_states):
+    print("Got {len(board_states)} boards")
+
+
 if __name__ == '__main__':
+    args = parser.parse_args()
+
+    GameFile = args.game_file
+    GameCount = args.game_count
+    OutputFile = args.out_file
+
     pgn = open(GameFile)
 
-    StockfishModel = Stockfish()
+    StockfishModel = Stockfish(parameters={'Threads': 2})
     StockfishModel.set_depth(StockfishModelDepth)
 
-    print(f"Games from {GameFile} (at most {GameCount})")
+    print(f"Parsing at most {GameCount} games from {GameFile} into {OutputFile}")
 
-    games_processed = 0
-    while games_processed < GameCount:
-        game = chess.pgn.read_game(pgn)
+    if args.skip_games:
+        for i in range(args.skip_games):
+            chess.pgn.read_game(pgn)
 
-        t0 = time.time()
-        board_states = get_features(game)
-        t1 = time.time()
-        elapsed = t1 - t0
-        games_processed += 1
-        print(f'Processed game {games_processed} in {elapsed} seconds')
+    game_count = 0
+    records = list()
+    try:
+        while game_count < GameCount:
+            game = chess.pgn.read_game(pgn)
+            t0 = time.time()
+            board_states = get_features(game)
+            elapsed = time.time() - t0
+            game_count += 1
+            print(f'Processed game {game_count} in {elapsed} seconds ({len(board_states)} boards)')
+            records.extend(board_states)
+    except Exception as e:
+        print(f"Caught exception {e}")
+        print(traceback.format_exc())
+    finally:
+        df = pd.DataFrame.from_records(records, columns=records[0].keys())
+        df.to_csv(OutputFile)
