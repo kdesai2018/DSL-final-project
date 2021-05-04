@@ -551,7 +551,6 @@ def get_side_controlling_each_square(board: chess.Board):
 
     return controlling_side
 
-
 def get_pawn_structure(chesscolor, board):
     """
     color = True if white, else False
@@ -560,17 +559,24 @@ def get_pawn_structure(chesscolor, board):
     return: (single_pawns, islands)
     """
 
-    sqset = board.pieces(chess.PAWN, chesscolor)
-
+    sqset = list(board.pieces(chess.PAWN, chesscolor))
+    sqset = sorted(sqset, key= lambda n: n%8)
+    all_pawns = set(sqset)
     islands = singletons = 0
     possible_island = False
 
     for s in range(len(sqset) - 1):
-        cur_pawn = list(sqset)[s]
-        next_pawn = list(sqset)[s + 1]
+        
+        cur_pawn = sqset[s]
+        next_pawn = sqset[s + 1]
+
+        print(f'current pawn loc: {cur_pawn}')
+        print(f'next pawn loc: {next_pawn}')
 
         file_diff = (next_pawn % 8) - (cur_pawn % 8)
+        print(f'file_diff: {file_diff}')
         dist = next_pawn - cur_pawn
+        print(f'dist: {dist}')
 
         """
             case 1: single pawn, no pawn in next file -> singleton += 1
@@ -581,21 +587,39 @@ def get_pawn_structure(chesscolor, board):
             here, cases 1
         """
 
-        if file_diff != 1:  # cases 1 and 2
-            singletons += 1
-            continue
-        elif dist not in set([-7, 1, 9]):  # case 3
+        if file_diff > 1:  # cases 1 and 2
+            if possible_island:
+                islands += int(possible_island)
+                print('found an island')
+                possible_island = False
+            else:
+                singletons += 1
+                print('found a singleton')
+        elif dist not in set([-7, 1, 8, 9]):  # case 3
             possible_island = False  # resset
             islands += 1
+            print('found an island')
             continue
         else:  # case 4
             possible_island = True
             continue
 
     islands += int(possible_island)
+    
+#     check if rightmost of color is a singleton
+    right_single_off = [-1, -9, -8]
+    rightmost = sqset[-1]
+    right_is_single = True
+    
+    for off in right_single_off:
+        if rightmost+off>=0 and rightmost+off<=63:
+            if rightmost+off in all_pawns:
+                right_is_single = False
+    
+    singletons += int(right_is_single)
+        
 
     return (singletons, islands)
-
 
 def get_king_mobility(chesscolor, board):
     """
@@ -664,8 +688,12 @@ def get_features(game):
         if movesan in set(['0-0', '0-0-0']):
             if board.turn:
                 has_white_castled = True
+                white_pieces_moved.add(chess.KING)
+                white_pieces_moved.add(chess.ROOK)
             else:
                 has_black_castled = True
+                black_pieces_moved.add(chess.KING)
+                black_pieces_moved.add(chess.ROOK)
 
         # see whether current player is in check before we move
         ret['current_player_in_check'] = int(board.is_check())
