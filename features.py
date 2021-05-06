@@ -326,7 +326,6 @@ def get_pins_and_skewers(
     SkewerIdx = 4
     KingSkewerIdx = 6
 
-    # print("finding pins and skewers")
     for square in chess.SQUARES:  # goes from bottom left to bottom right, then upwards
         attackingPiece = board.piece_at(square)
 
@@ -363,7 +362,6 @@ def get_pins_and_skewers(
             pieceExistsOnOtherSide = False
             # find the next piece on the other side of the attacked piece
             directionOfAttack = get_direction_of_attack(square, sq, board)  # square is attacking sq
-            # print(direction_of_attack)
             # check the next squares in that direction until you find a piece
             nextSquareInt = sq
             while not pieceExistsOnOtherSide:
@@ -385,7 +383,6 @@ def get_pins_and_skewers(
             # If another piece of the same color is on the other side of the attack, we
             # have a pin or skewer depending on the piece type.
             attackedPieceIsStronger = compare_pieces(attackedPiece, next_piece)
-            # print(attackedPieceIsStronger) #false is a pin, true is a skewer
             if attackedPieceIsStronger:
                 pins_and_skewers[SkewerIdx + offset] += 1
                 if str(board.piece_at(sq)) == 'K':
@@ -407,15 +404,12 @@ def get_direction_of_attack(
     direction = ""
 
     # get coordinates of attacker
-    # print("attacker square is", attackingSquare)
     attackerFile = chess.square_file(attackingSquare)
     attackerRank = chess.square_rank(attackingSquare)
-    # print("attacker coordinates are", attackerFile, attackerRank) #(x,y) coordinates, 0-indexed
 
     # get coordinates of attacked piece
     attackedFile = chess.square_file(attackedSquare)
     attackedRank = chess.square_rank(attackedSquare)
-    # print("attacked coordinates are", attackedFile, attackedRank)
 
     if (attackerFile > attackedFile) and (attackerRank < attackedRank):
         direction = 'NW'
@@ -551,6 +545,7 @@ def get_side_controlling_each_square(board: chess.Board):
 
     return controlling_side
 
+
 def get_pawn_structure(chesscolor, board):
     """
     color = True if white, else False
@@ -560,23 +555,18 @@ def get_pawn_structure(chesscolor, board):
     """
 
     sqset = list(board.pieces(chess.PAWN, chesscolor))
-    sqset = sorted(sqset, key= lambda n: n%8)
+    sqset = sorted(sqset, key=lambda n: n % 8)
     all_pawns = set(sqset)
     islands = singletons = 0
     possible_island = False
 
     for s in range(len(sqset) - 1):
-        
+
         cur_pawn = sqset[s]
         next_pawn = sqset[s + 1]
 
-        print(f'current pawn loc: {cur_pawn}')
-        print(f'next pawn loc: {next_pawn}')
-
         file_diff = (next_pawn % 8) - (cur_pawn % 8)
-        print(f'file_diff: {file_diff}')
         dist = next_pawn - cur_pawn
-        print(f'dist: {dist}')
 
         """
             case 1: single pawn, no pawn in next file -> singleton += 1
@@ -590,36 +580,36 @@ def get_pawn_structure(chesscolor, board):
         if file_diff > 1:  # cases 1 and 2
             if possible_island:
                 islands += int(possible_island)
-                print('found an island')
                 possible_island = False
             else:
                 singletons += 1
-                print('found a singleton')
         elif dist not in set([-7, 1, 8, 9]):  # case 3
             possible_island = False  # resset
             islands += 1
-            print('found an island')
             continue
         else:  # case 4
             possible_island = True
             continue
 
     islands += int(possible_island)
-    
-#     check if rightmost of color is a singleton
+
+    # check if rightmost of color is a singleton
     right_single_off = [-1, -9, -8]
-    rightmost = sqset[-1]
-    right_is_single = True
-    
-    for off in right_single_off:
-        if rightmost+off>=0 and rightmost+off<=63:
-            if rightmost+off in all_pawns:
-                right_is_single = False
-    
-    singletons += int(right_is_single)
-        
+    try:
+        rightmost = sqset[-1]
+        right_is_single = True
+
+        for off in right_single_off:
+            if rightmost + off >= 0 and rightmost + off <= 63:
+                if rightmost + off in all_pawns:
+                    right_is_single = False
+
+        singletons += int(right_is_single)
+    except IndexError:
+        pass
 
     return (singletons, islands)
+
 
 def get_king_mobility(chesscolor, board):
     """
@@ -767,8 +757,6 @@ def get_features(game):
             ret[f'side_controlling_{square}'] = control_sum
 
         ret['stockfish_evaluation'] = get_stockfish_evaluation(board)
-
-        # print(board.fen(), "-> score", ret['stockfish_evaluation'])
 
         board_states.append(ret)
 
