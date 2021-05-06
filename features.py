@@ -668,6 +668,9 @@ def get_features(game):
     white_pieces_moved = set()
     black_pieces_moved = set()
 
+    # Game metadata
+    header_dict = dict(game.headers)
+
     board_states = list()
 
     for move in moves:
@@ -757,6 +760,8 @@ def get_features(game):
             ret[f'side_controlling_{square}'] = control_sum
 
         ret['stockfish_evaluation'] = get_stockfish_evaluation(board)
+
+        ret.update(header_dict)
 
         board_states.append(ret)
 
